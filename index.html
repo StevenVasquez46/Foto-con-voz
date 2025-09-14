@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>Document</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      text-align: center;
+      background: #5a4f4f;
+      color: #eee;
+      padding: 2rem;
+    }
+    h1 { 
+      margin-top: 0; 
+    }
+    video, img {
+      width: 100%;
+      max-width: 400px;
+      border: 3px solid rgb(0, 255, 234);
+      border-radius: 8px;
+      margin: 1rem auto;
+      display: block;
+    }
+    button, select {
+      padding: 0.7rem 1.4rem;
+      font-size: 1rem;
+      border: none;
+      border-radius: 5px;
+      background: #0cf;
+      color: #000;
+      cursor: pointer;
+      margin: 0.5rem;
+    }
+    button:disabled {
+      background: #51dfdf;
+      cursor: not-allowed;
+    }
+    #estado {
+      margin-top: 1rem;
+      font-size: 0.9rem;
+      color: #aaa;
+    }
+  </style>
+</head>
+
+<body>
+  <h1>Di "foto" para capturar</h1>
+
+  <video id="webcam" autoplay playsinline></video>
+  <canvas id="canvas" style="display:none;"></canvas>
+  <img id="foto" alt="Tu foto aparecerá aquí">
+
+  <div>
+    <label for="formato">Formato:</label>
+    <select id="formato">
+      <option value="png">PNG</option>
+      <option value="jpeg">JPG</option>
+    </select>
+    <button id="btnDescarga" disabled>Descargar foto</button>
+  </div>
+
+  <p id="estado">Iniciando cámara y voz...</p>
+
+  <script>
+    const video   = document.getElementById('webcam');
+    const canvas  = document.getElementById('canvas');
+    const ctx     = canvas.getContext('2d');
+    const fotoImg = document.getElementById('foto');
+    const btnDL   = document.getElementById('btnDescarga');
+    const estado  = document.getElementById('estado');
+    const formato = document.getElementById('formato');
+
+    let fotoActual = null; 
+
+    navigator.mediaDevices.getUserMedia({ video: true, audio: false })
+      .then(stream => {
+        video.srcObject = stream;
+        iniciarVoz();
+      })
+      .catch(err => {
+        estado.textContent = 'Error al acceder a la cámara: ' + err;
+      });
+
+    function iniciarVoz() {
+      const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+      if (!SpeechRecognition) {
+        estado.textContent = 'Navegador sin soporte de reconocimiento de voz';
+        return;
+      }
+
+      const recognition = new SpeechRecognition();
+      recognition.lang = 'es-ES';
+      recognition.continuous = true;
+      recognition.interimResults = false;
+
+      recognition.onresult = event => {
+        const palabra = event.results[event.results.length - 1][0].transcript.trim().toLowerCase();
+        console.log('Escuchado: ' + palabra);
+        if (palabra.includes('foto')) capturarFoto();
+      };
+
+      recognition.onerror = e => estado.textContent = 'Error de reconocimiento: ' + e.error;
+      recognition.start();
+      estado.textContent = 'Escuchando… di “foto”';
+    }
+
+    function capturarFoto() {
+      canvas.width  = video.videoWidth;
+      canvas.height = video.videoHeight;
+      ctx.drawImage(video, 0, 0);
+
+      fotoActual = canvas.toDataURL('image/png');
+      fotoImg.src = fotoActual;
+      btnDL.disabled = false;
+      estado.textContent = 'Foto actualizada. Pulsa “Descargar foto” cuando quieras guardarla.';
+    }
+
+    btnDL.onclick = () => {
+      if (!fotoActual) return;
+
+      const tipo = formato.value; 
+      let url = fotoActual;
+      if (tipo === 'jpeg') url = canvas.toDataURL('image/jpeg', 0.9);
+
+      const link = document.createElement('a');
+      link.download = `foto_${Date.now()}.${tipo}`;
+      link.href = url;
+      link.click();
+    };
+  </script>
+</body>
+</html>
